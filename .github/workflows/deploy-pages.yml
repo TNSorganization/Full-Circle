@@ -1,43 +1,108 @@
-name: Deploy Full Circle mirror
+name: Keep Full Circle Online
 
 on:
   push:
     branches: [main]
+  schedule:
+    - cron: '*/10 * * * *'
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   pages: write
-  id-token: write
 
 concurrency:
   group: full-circle-pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   publish:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+    timeout-minutes: 15
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v6
-
-      - name: Prepare verified application package
-        run: |
-          cp dist/index.html dist/404.html
-          touch dist/.nojekyll
-
-      - name: Configure GitHub Pages
-        uses: actions/configure-pages@v5
-
-      - name: Upload mirror
-        uses: actions/upload-pages-artifact@v4
+      - name: Check out the recovery copy
+        uses: actions/checkout@v4
         with:
-          path: dist
+          path: mirror
 
-      - name: Publish mirror
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Fetch the latest production build
+        id: prepare
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          source_root="mirror"
+          if git clone --depth=1 --filter=blob:none --sparse \
+            https://github.com/Partner700/Fullcircle.git source; then
+            git -C source sparse-checkout set dist
+            source_root="source"
+          else
+            echo "::warning::The primary repository was unavailable; republishing the recovery copy."
+          fi
+
+          test -f "$source_root/dist/index.html"
+          test -f "$source_root/dist/sw.js"
+          test -d "$source_root/dist/assets"
+
+          mkdir release
+          cp -R "$source_root/dist/." release/
+          for splash in release/icons/apple-splash-*.png; do
+            test -e "$splash" || continue
+            cp mirror/deploy-assets/pwa-splash.png "$splash"
+          done
+          source_sha="$(git -C "$source_root" rev-parse HEAD)"
+          printf '%s\n' "$source_sha" > release/.fullcircle-source-sha
+          cp release/index.html release/404.html
+          touch release/.nojekyll
+
+          expected="$(sed -n 's#.*src="\(\./assets/index-[^"]*\.js\)".*#\1#p' release/index.html | head -n 1)"
+          test -n "$expected"
+          live="$(curl -fsSL --connect-timeout 15 --max-time 30 \
+            "https://tnsorganization.github.io/Full-Circle/?health=${GITHUB_RUN_ID}" || true)"
+          if grep -Fq "$expected" <<<"$live"; then
+            echo "needs_publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "needs_publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish the verified build
+        if: steps.prepare.outputs.needs_publish == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          stage="$(mktemp -d)"
+          cp -R release/. "$stage/"
+
+          git -C "$stage" init -q -b gh-pages
+          git -C "$stage" config user.name "Full Circle Deployment"
+          git -C "$stage" config user.email "actions@users.noreply.github.com"
+          git -C "$stage" add -A
+          git -C "$stage" commit -q -m "Publish $(cat release/.fullcircle-source-sha)"
+          git -C "$stage" remote add origin \
+            "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git -C "$stage" push --force origin HEAD:gh-pages
+
+          # Explicitly queue the branch-based Pages build because workflow
+          # tokens do not trigger every downstream repository event.
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/pages/builds" >/dev/null
+
+      - name: Confirm the public site responds
+        if: steps.prepare.outputs.needs_publish == 'true'
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          expected="$(sed -n 's#.*src="\(\./assets/index-[^"]*\.js\)".*#\1#p' release/index.html | head -n 1)"
+          test -n "$expected"
+
+          for attempt in $(seq 1 30); do
+            live="$(curl -fsSL --connect-timeout 15 --max-time 30 \
+              "https://tnsorganization.github.io/Full-Circle/?release=${GITHUB_RUN_ID}-${attempt}" || true)"
+            if grep -Fq "$expected" <<<"$live"; then
+              exit 0
+            fi
+            sleep 10
+          done
+
+          echo "The release was published, but the public CDN did not update within five minutes." >&2
+          exit 1
