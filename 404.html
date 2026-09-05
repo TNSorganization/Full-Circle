@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f2037" />
+  <meta name="description" content="Full Circle is a gamified discipleship platform with daily Bible quizzes, streak tracking, tent houses, leaderboards, and scripture meditation." />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Full Circle" />
+  <meta name="format-detection" content="telephone=no" />
+  <meta name="application-name" content="Full Circle" />
+  <meta name="msapplication-TileColor" content="#0f2037" />
+  <meta name="msapplication-TileImage" content="./icons/icon-144.png?v=7" />
+  <meta name="msapplication-config" content="./browserconfig.xml" />
+  <meta name="referrer" content="strict-origin-when-cross-origin" />
+  <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+  <link rel="canonical" href="https://fullcircle.partnertai.com/" />
+
+  <script>
+    // The app is also opened inside older Android and social-app WebViews.
+    // Supply the small ES2019/2020 helpers used by the single release bundle.
+    if (!Array.prototype.flatMap) {
+      Object.defineProperty(Array.prototype, 'flatMap', {
+        configurable: true,
+        writable: true,
+        value: function (callback, thisArg) {
+          return this.reduce(function (result, item, index, array) {
+            return result.concat(callback.call(thisArg, item, index, array));
+          }, []);
+        }
+      });
+    }
+    if (!Object.fromEntries) {
+      Object.fromEntries = function (entries) {
+        return Array.from(entries).reduce(function (result, entry) {
+          result[entry[0]] = entry[1];
+          return result;
+        }, {});
+      };
+    }
+    if (!String.prototype.matchAll) {
+      Object.defineProperty(String.prototype, 'matchAll', {
+        configurable: true,
+        writable: true,
+        value: function (expression) {
+          if (!(expression instanceof RegExp) || !expression.global) {
+            throw new TypeError('String.prototype.matchAll requires a global RegExp');
+          }
+          var source = String(this);
+          var matcher = new RegExp(expression.source, expression.flags);
+          var matches = [];
+          var match;
+          while ((match = matcher.exec(source)) !== null) {
+            matches.push(match);
+            if (match[0] === '') matcher.lastIndex += 1;
+          }
+          return matches;
+        }
+      });
+    }
+    if (!Promise.allSettled) {
+      Promise.allSettled = function (promises) {
+        return Promise.all(Array.from(promises).map(function (promise) {
+          return Promise.resolve(promise).then(
+            function (value) { return { status: 'fulfilled', value: value }; },
+            function (reason) { return { status: 'rejected', reason: reason }; }
+          );
+        }));
+      };
+    }
+  </script>
+
+  <script>
+    // Some older home-screen shortcuts were saved with a www hostname. Once
+    // that hostname reaches Hostinger, move it to the single supported origin
+    // before loading the manifest, worker, fonts, or application bundle.
+    if (window.location.hostname.toLowerCase() === 'www.fullcircle.partnertai.com') {
+      var canonicalUrl = new URL(window.location.href);
+      canonicalUrl.protocol = 'https:';
+      canonicalUrl.hostname = 'fullcircle.partnertai.com';
+      canonicalUrl.port = '';
+      window.location.replace(canonicalUrl.toString());
+    }
+  </script>
+
+  <!-- Manifest -->
+  <link rel="manifest" href="./manifest.webmanifest?v=106" />
+
+  <!-- Icons -->
+  <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png?v=7" />
+  <link rel="icon" type="image/png" sizes="72x72" href="./icons/icon-72.png?v=7" />
+  <link rel="icon" type="image/png" sizes="96x96" href="./icons/icon-96.png?v=7" />
+  <link rel="icon" type="image/png" sizes="128x128" href="./icons/icon-128.png?v=7" />
+  <link rel="icon" type="image/png" sizes="144x144" href="./icons/icon-144.png?v=7" />
+  <link rel="icon" type="image/png" sizes="152x152" href="./icons/icon-152.png?v=7" />
+  <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png?v=7" />
+  <link rel="icon" type="image/png" sizes="384x384" href="./icons/icon-384.png?v=7" />
+  <link rel="icon" type="image/png" sizes="512x512" href="./icons/icon-512.png?v=7" />
+
+  <!-- Apple Touch Icons -->
+  <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png?v=7" />
+  <link rel="apple-touch-icon" sizes="152x152" href="./icons/icon-152.png?v=7" />
+  <link rel="apple-touch-icon" sizes="167x167" href="./icons/icon-167.png?v=7" />
+  <link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png?v=7" />
+
+  <!-- Apple Splash Screen -->
+  <link rel="apple-touch-startup-image" media="(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2)" href="./icons/apple-splash-640x1136.png?v=7" />
+  <link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2)" href="./icons/apple-splash-750x1334.png?v=7" />
+  <link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2)" href="./icons/apple-splash-828x1792.png?v=7" />
+  <link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3)" href="./icons/apple-splash-1125x2436.png?v=7" />
+  <link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3)" href="./icons/apple-splash-1242x2688.png?v=7" />
+  <link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 736px) and (-webkit-device-pixel-ratio: 3)" href="./icons/apple-splash-1242x2208.png?v=7" />
+  <link rel="apple-touch-startup-image" media="(device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2)" href="./icons/apple-splash-2048x2732.png?v=7" />
+  <link rel="apple-touch-startup-image" media="(device-width: 834px) and (device-height: 1194px) and (-webkit-device-pixel-ratio: 2)" href="./icons/apple-splash-1668x2388.png?v=7" />
+  <link rel="apple-touch-startup-image" media="(device-width: 834px) and (device-height: 1112px) and (-webkit-device-pixel-ratio: 2)" href="./icons/apple-splash-1668x2224.png?v=7" />
+  <link rel="apple-touch-startup-image" media="(device-width: 768px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2)" href="./icons/apple-splash-1536x2048.png?v=7" />
+
+  <!-- Open Graph / Social -->
+  <meta property="og:title" content="Full Circle" />
+  <meta property="og:description" content="Gamified discipleship platform with daily Bible quizzes, streak tracking, and leaderboards." />
+  <meta property="og:type" content="website" />
+  <meta property="og:image" content="https://fullcircle.partnertai.com/social/fullcircle-share.jpeg?v=7" />
+  <meta property="og:image:width" content="1280" />
+  <meta property="og:image:height" content="977" />
+  <meta property="og:url" content="https://fullcircle.partnertai.com" />
+  <meta property="og:locale" content="en_US" />
+  <meta property="og:site_name" content="Full Circle" />
+
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Full Circle" />
+  <meta name="twitter:description" content="Gamified discipleship platform with daily Bible quizzes, streak tracking, and leaderboards." />
+  <meta name="twitter:image" content="https://fullcircle.partnertai.com/social/fullcircle-share.jpeg?v=7" />
+
+  <!-- Preconnect for performance -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+  <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
+
+  <!-- Load branded fonts after first paint; system fonts keep slow phones usable. -->
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;500;600;700;800&family=Nunito:wght@400;500;600;700;800;900&family=VT323&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;500;600;700;800&family=Nunito:wght@400;500;600;700;800;900&family=VT323&display=swap" rel="stylesheet" /></noscript>
+
+  <!-- Full reload marker: clears retired Web Audio sessions after sound-system updates. -->
+  <title>Full Circle</title>
+  <script>
+    // Repair a retired installed-app worker before it can keep serving stale
+    // HTML or JavaScript. The release marker prevents a repair loop on a slow
+    // connection, and the application registers the current worker after boot.
+    (function () {
+      var release = '106';
+      var marker = 'fc-repair';
+      var currentUrl = new URL(window.location.href);
+      var repairStarted = false;
+
+      window.__repairFullCircleBoot = async function (force) {
+        if (repairStarted) return;
+        if (!force && currentUrl.searchParams.get(marker) === release) return;
+        repairStarted = true;
+
+        try {
+          if ('caches' in window) {
+            var cacheNames = await window.caches.keys().catch(function () { return []; });
+            await Promise.all(cacheNames.filter(function (cacheName) {
+              return cacheName.indexOf('full-circle-') === 0;
+            }).map(function (cacheName) {
+              return window.caches.delete(cacheName);
+            }));
+          }
+          if ('serviceWorker' in navigator) {
+            var registrations = await navigator.serviceWorker.getRegistrations().catch(function () { return []; });
+            var appScope = new URL('./', document.baseURI).href;
+            await Promise.all(registrations.filter(function (registration) {
+              return registration.scope === appScope;
+            }).map(function (registration) {
+              return registration.unregister();
+            }));
+          }
+        } finally {
+          var freshUrl = new URL(window.location.href);
+          freshUrl.searchParams.set(marker, release);
+          freshUrl.searchParams.set('ts', String(Date.now()));
+          window.location.replace(freshUrl.toString());
+        }
+      };
+
+      if ('serviceWorker' in navigator) {
+        var controller = navigator.serviceWorker.controller;
+        var currentWorker = controller && new RegExp('[?&]v=' + release + '(?:&|$)').test(controller.scriptURL);
+        if (controller && !currentWorker && currentUrl.searchParams.get(marker) !== release) {
+          window.__repairFullCircleBoot(false);
+          return;
+        }
+
+        navigator.serviceWorker
+          .register('./sw.js?v=106', { updateViaCache: 'none' })
+          .then(function (registration) { return registration.update(); })
+          .catch(function () {});
+      }
+    })();
+  </script>
+  <script type="module" crossorigin src="./assets/index-CubmhsAD.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/style-DhkfLgzG.css">
+</head>
+<body>
+  <main id="root"></main>
+  <script>
+    // If an older phone cannot execute the application bundle, leave it a
+    // usable recovery action instead of a permanent blank screen.
+    window.__fullCircleBootWatchdog = window.setTimeout(function () {
+      var root = document.getElementById('root');
+      if (!root || root.hasChildNodes()) return;
+      var alreadyRepaired = new URL(window.location.href).searchParams.get('fc-repair') === '106';
+      if (!alreadyRepaired && typeof window.__repairFullCircleBoot === 'function') {
+        window.__repairFullCircleBoot(false);
+        return;
+      }
+      root.innerHTML = '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:#0f2037;color:#fff;font:600 16px system-ui;text-align:center"><div><p>Full Circle needs a fresh start on this device.</p><button type="button" onclick="window.__repairFullCircleBoot(true)" style="margin-top:16px;border:0;border-radius:8px;padding:12px 18px;background:#ffd83d;color:#0f2037;font:800 14px system-ui">Repair and open app</button></div></div>';
+    }, 24000);
+  </script>
+</body>
+</html>
