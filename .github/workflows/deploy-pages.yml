@@ -56,12 +56,21 @@ jobs:
 
           expected="$(sed -n 's#.*src="\(\./assets/index-[^"]*\.js\)".*#\1#p' release/index.html | head -n 1)"
           test -n "$expected"
+          git -C mirror fetch --quiet --depth=1 origin \
+            gh-pages:refs/remotes/origin/gh-pages || true
+          published_sha="$(git -C mirror show \
+            refs/remotes/origin/gh-pages:.fullcircle-source-sha 2>/dev/null || true)"
           live="$(curl -fsSL --connect-timeout 15 --max-time 30 \
             "https://tnsorganization.github.io/Full-Circle/?health=${GITHUB_RUN_ID}" || true)"
           if grep -Fq "$expected" <<<"$live"; then
             echo "needs_publish=false" >> "$GITHUB_OUTPUT"
+            echo "needs_build=false" >> "$GITHUB_OUTPUT"
+          elif [[ "$published_sha" == "$source_sha" ]]; then
+            echo "needs_publish=false" >> "$GITHUB_OUTPUT"
+            echo "needs_build=true" >> "$GITHUB_OUTPUT"
           else
             echo "needs_publish=true" >> "$GITHUB_OUTPUT"
+            echo "needs_build=true" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Publish the verified build
@@ -83,23 +92,68 @@ jobs:
             "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
           git -C "$stage" push --force origin HEAD:gh-pages
 
-          # Explicitly queue the branch-based Pages build because workflow
-          # tokens do not trigger every downstream repository event.
-          gh api --method POST "repos/${GITHUB_REPOSITORY}/pages/builds" >/dev/null
+      - name: Keep Pages on the independent branch and request its build
+        if: steps.prepare.outputs.needs_build == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+
+          # Keep the recovery URL independent from Hostinger and its DNS.
+          gh api --method PUT "repos/${GITHUB_REPOSITORY}/pages" --input - >/dev/null <<'JSON'
+          {
+            "build_type": "legacy",
+            "cname": null,
+            "source": { "branch": "gh-pages", "path": "/" }
+          }
+          JSON
+
+          published_commit="$(gh api \
+            "repos/${GITHUB_REPOSITORY}/git/ref/heads/gh-pages" \
+            --jq '.object.sha')"
+          details="$(gh api "repos/${GITHUB_REPOSITORY}/pages/builds/latest" \
+            --jq '[.status, .commit] | @tsv' 2>/dev/null || true)"
+          read -r status build_commit <<<"$details"
+          if [[ "$build_commit" == "$published_commit" ]] && \
+            [[ "$status" == "queued" || "$status" == "building" ]]; then
+            echo "GitHub Pages is already ${status}; preserving that build."
+          elif [[ "$build_commit" == "$published_commit" && "$status" == "built" ]]; then
+            echo "GitHub Pages already built the exact published release."
+          else
+            gh api --method POST "repos/${GITHUB_REPOSITORY}/pages/builds" >/dev/null
+          fi
 
       - name: Confirm the public site responds
-        if: steps.prepare.outputs.needs_publish == 'true'
+        if: steps.prepare.outputs.needs_build == 'true'
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -Eeuo pipefail
           expected="$(sed -n 's#.*src="\(\./assets/index-[^"]*\.js\)".*#\1#p' release/index.html | head -n 1)"
           test -n "$expected"
+          published_commit="$(gh api \
+            "repos/${GITHUB_REPOSITORY}/git/ref/heads/gh-pages" \
+            --jq '.object.sha')"
 
           for attempt in $(seq 1 30); do
             live="$(curl -fsSL --connect-timeout 15 --max-time 30 \
               "https://tnsorganization.github.io/Full-Circle/?release=${GITHUB_RUN_ID}-${attempt}" || true)"
             if grep -Fq "$expected" <<<"$live"; then
               exit 0
+            fi
+
+            details="$(gh api "repos/${GITHUB_REPOSITORY}/pages/builds/latest" \
+              --jq '[.status, .commit] | @tsv' 2>/dev/null || true)"
+            read -r status build_commit <<<"$details"
+            if [[ "$build_commit" == "$published_commit" && "$status" == "built" ]]; then
+              echo "GitHub Pages confirms the exact release is built."
+              exit 0
+            fi
+            if [[ "$build_commit" == "$published_commit" && "$status" == "errored" ]]; then
+              echo "GitHub Pages reported that the release build failed." >&2
+              exit 1
             fi
             sleep 10
           done
