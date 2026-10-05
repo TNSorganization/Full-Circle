@@ -1,8 +1,6 @@
 name: Keep Full Circle Online
 
 on:
-  push:
-    branches: [main]
   schedule:
     - cron: '17 * * * *'
   workflow_dispatch:
