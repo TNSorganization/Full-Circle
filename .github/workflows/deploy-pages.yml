@@ -4,159 +4,65 @@ on:
   push:
     branches: [main]
   schedule:
-    - cron: '*/10 * * * *'
+    - cron: '17 * * * *'
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   pages: write
+  id-token: write
 
 concurrency:
   group: full-circle-pages
   cancel-in-progress: false
 
 jobs:
-  publish:
+  deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Check out the recovery copy
+      - name: Check out the recovery repository
         uses: actions/checkout@v4
-        with:
-          path: mirror
 
-      - name: Fetch the latest production build
-        id: prepare
+      - name: Fetch the latest verified production build
         shell: bash
         run: |
           set -Eeuo pipefail
-          source_root="mirror"
-          if git clone --depth=1 --filter=blob:none --sparse \
-            https://github.com/Partner700/Fullcircle.git source; then
-            git -C source sparse-checkout set dist
-            source_root="source"
-          else
-            echo "::warning::The primary repository was unavailable; republishing the recovery copy."
-          fi
+          git clone --depth=1 --filter=blob:none --sparse \
+            https://github.com/Partner700/Fullcircle.git source
+          git -C source sparse-checkout set dist
 
-          test -f "$source_root/dist/index.html"
-          test -f "$source_root/dist/sw.js"
-          test -d "$source_root/dist/assets"
+          test -f source/dist/index.html
+          test -f source/dist/fc-worker.js
+          test -f source/dist/release-manifest.json
+          test -d source/dist/assets
 
           mkdir release
-          cp -R "$source_root/dist/." release/
+          cp -R source/dist/. release/
           for splash in release/icons/apple-splash-*.png; do
             test -e "$splash" || continue
-            cp mirror/deploy-assets/pwa-splash.png "$splash"
+            cp deploy-assets/pwa-splash.png "$splash"
           done
-          source_sha="$(git -C "$source_root" rev-parse HEAD)"
-          printf '%s\n' "$source_sha" > release/.fullcircle-source-sha
           cp release/index.html release/404.html
           touch release/.nojekyll
 
           expected="$(sed -n 's#.*src="\(\./assets/index-[^"]*\.js\)".*#\1#p' release/index.html | head -n 1)"
           test -n "$expected"
-          git -C mirror fetch --quiet --depth=1 origin \
-            gh-pages:refs/remotes/origin/gh-pages || true
-          published_sha="$(git -C mirror show \
-            refs/remotes/origin/gh-pages:.fullcircle-source-sha 2>/dev/null || true)"
-          live="$(curl -fsSL --connect-timeout 15 --max-time 30 \
-            "https://tnsorganization.github.io/Full-Circle/?health=${GITHUB_RUN_ID}" || true)"
-          if grep -Fq "$expected" <<<"$live"; then
-            echo "needs_publish=false" >> "$GITHUB_OUTPUT"
-            echo "needs_build=false" >> "$GITHUB_OUTPUT"
-          elif [[ "$published_sha" == "$source_sha" ]]; then
-            echo "needs_publish=false" >> "$GITHUB_OUTPUT"
-            echo "needs_build=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "needs_publish=true" >> "$GITHUB_OUTPUT"
-            echo "needs_build=true" >> "$GITHUB_OUTPUT"
-          fi
+          test -f "release/${expected#./}"
+          ! grep -R -Fq 'kckzqsafzemeijxfohuy' release
+          grep -R -Fq 'nffqohxdelaglrmuzjwb' release
 
-      - name: Publish the verified build
-        if: steps.prepare.outputs.needs_publish == 'true'
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -Eeuo pipefail
-          stage="$(mktemp -d)"
-          cp -R release/. "$stage/"
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
 
-          git -C "$stage" init -q -b gh-pages
-          git -C "$stage" config user.name "Full Circle Deployment"
-          git -C "$stage" config user.email "actions@users.noreply.github.com"
-          git -C "$stage" add -A
-          git -C "$stage" commit -q -m "Publish $(cat release/.fullcircle-source-sha)"
-          git -C "$stage" remote add origin \
-            "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
-          git -C "$stage" push --force origin HEAD:gh-pages
+      - name: Upload the verified app
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: release
 
-      - name: Keep Pages on the independent branch and request its build
-        if: steps.prepare.outputs.needs_build == 'true'
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -Eeuo pipefail
-
-          # Keep the recovery URL independent from Hostinger and its DNS.
-          gh api --method PUT "repos/${GITHUB_REPOSITORY}/pages" --input - >/dev/null <<'JSON'
-          {
-            "build_type": "legacy",
-            "cname": null,
-            "source": { "branch": "gh-pages", "path": "/" }
-          }
-          JSON
-
-          published_commit="$(gh api \
-            "repos/${GITHUB_REPOSITORY}/git/ref/heads/gh-pages" \
-            --jq '.object.sha')"
-          details="$(gh api "repos/${GITHUB_REPOSITORY}/pages/builds/latest" \
-            --jq '[.status, .commit] | @tsv' 2>/dev/null || true)"
-          read -r status build_commit <<<"$details"
-          if [[ "$build_commit" == "$published_commit" ]] && \
-            [[ "$status" == "queued" || "$status" == "building" ]]; then
-            echo "GitHub Pages is already ${status}; preserving that build."
-          elif [[ "$build_commit" == "$published_commit" && "$status" == "built" ]]; then
-            echo "GitHub Pages already built the exact published release."
-          else
-            gh api --method POST "repos/${GITHUB_REPOSITORY}/pages/builds" >/dev/null
-          fi
-
-      - name: Confirm the public site responds
-        if: steps.prepare.outputs.needs_build == 'true'
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -Eeuo pipefail
-          expected="$(sed -n 's#.*src="\(\./assets/index-[^"]*\.js\)".*#\1#p' release/index.html | head -n 1)"
-          test -n "$expected"
-          published_commit="$(gh api \
-            "repos/${GITHUB_REPOSITORY}/git/ref/heads/gh-pages" \
-            --jq '.object.sha')"
-
-          for attempt in $(seq 1 30); do
-            live="$(curl -fsSL --connect-timeout 15 --max-time 30 \
-              "https://tnsorganization.github.io/Full-Circle/?release=${GITHUB_RUN_ID}-${attempt}" || true)"
-            if grep -Fq "$expected" <<<"$live"; then
-              exit 0
-            fi
-
-            details="$(gh api "repos/${GITHUB_REPOSITORY}/pages/builds/latest" \
-              --jq '[.status, .commit] | @tsv' 2>/dev/null || true)"
-            read -r status build_commit <<<"$details"
-            if [[ "$build_commit" == "$published_commit" && "$status" == "built" ]]; then
-              echo "GitHub Pages confirms the exact release is built."
-              exit 0
-            fi
-            if [[ "$build_commit" == "$published_commit" && "$status" == "errored" ]]; then
-              echo "GitHub Pages reported that the release build failed." >&2
-              exit 1
-            fi
-            sleep 10
-          done
-
-          echo "The release was published, but the public CDN did not update within five minutes." >&2
-          exit 1
+      - name: Deploy the app
+        id: deployment
+        uses: actions/deploy-pages@v4
