@@ -1,11 +1,12 @@
 // This cache namespace belongs only to the restored Supabase project. Never
 // reuse a pre-cutover shell: those bundles still address the restricted
 // project and can make an online phone appear permanently offline.
-const CACHE_VERSION = 'full-circle-target-v165';
-const CACHE_STORAGE_VERSION = 'full-circle-target-v165';
+const CACHE_VERSION = 'full-circle-target-v168';
+const CACHE_STORAGE_VERSION = 'full-circle-target-v168';
 const SHELL_CACHE = `${CACHE_STORAGE_VERSION}-shell`;
 const ASSET_CACHE = `${CACHE_STORAGE_VERSION}-assets`;
-const RECOVERY_MARKER = '165';
+const RECOVERY_MARKER = '168';
+const RELEASE_DOCUMENT_MARKER = '<meta name="full-circle-release" content="168"';
 const NAVIGATION_FALLBACK_DELAY_MS = 1_200;
 const MOBILE_DATA_FALLBACK_DELAY_MS = 3_000;
 const SECONDARY_MIRROR_DELAY_MS = 1_200;
@@ -149,10 +150,10 @@ async function fetchMobileDataFallback(requestOrUrl, signal) {
       started = index + 1;
       const fallbackBase = MOBILE_DATA_FALLBACK_BASES[index];
       const fallbackUrl = fallbackReleaseUrl(requestOrUrl, fallbackBase);
-      fetchWithDeadline(fallbackUrl, { mode: 'cors', signal: controllers[index].signal }).then((response) => {
-        if (validReleaseResponse(response, requestOrUrl)) succeed(index, response);
+      fetchWithDeadline(fallbackUrl, { mode: 'cors', signal: controllers[index].signal }).then(async (response) => {
+        if (await validReleaseResponse(response, requestOrUrl)) succeed(index, response);
         else fail();
-      }, fail);
+      }, fail).catch(fail);
     };
     if (signal) {
       if (signal.aborted) abortAll();
@@ -163,11 +164,36 @@ async function fetchMobileDataFallback(requestOrUrl, signal) {
   });
 }
 
-function validReleaseResponse(response, requestOrUrl) {
+async function validReleaseResponse(response, requestOrUrl) {
   const path = new URL(typeof requestOrUrl === 'string' ? requestOrUrl : requestOrUrl.url, self.registration.scope).pathname;
-  // Some hosts serve their SPA HTML for missing chunks. Never cache it as JS/CSS.
-  return response.ok && !(/\.(?:js|css|json|png|jpe?g|webp|svg|woff2?)$/i.test(path)
-    && /text\/html/i.test(response.headers.get('content-type') || ''));
+  const contentType = response.headers.get('content-type') || '';
+  const documentRequest = (typeof requestOrUrl !== 'string' && requestOrUrl && requestOrUrl.mode === 'navigate')
+    || /\.html?$/i.test(path);
+  if (!response.ok) return false;
+  // A document navigation must never render a JavaScript or CSS response as
+  // text. It must also contain this release's marker: generic CDN, proxy and
+  // hosting error pages are HTML too, but are never valid application shells.
+  if (documentRequest) {
+    if (!/text\/html|application\/xhtml\+xml/i.test(contentType)) return false;
+    try {
+      const html = await response.clone().text();
+      return html.includes(RELEASE_DOCUMENT_MARKER) && /id=["']root["']/.test(html);
+    } catch {
+      return false;
+    }
+  }
+  // Some hosts serve their SPA HTML for missing chunks. Require the actual
+  // browser MIME for executable/style assets so markup can never become code.
+  if (/\.(?:js|mjs)$/i.test(path)) return /(?:java|ecma)script/i.test(contentType);
+  if (/\.css$/i.test(path)) return /text\/css/i.test(contentType);
+  if (/\.json$/i.test(path)) return /application\/(?:json|manifest\+json)/i.test(contentType);
+  if (/\.(?:png|jpe?g|gif|webp|svg)$/i.test(path)) return /image\//i.test(contentType);
+  return !/text\/html/i.test(contentType);
+}
+
+function isReleaseAssetPath(pathname) {
+  return /\/assets\//i.test(pathname)
+    || /\.(?:js|mjs|css|json|map|png|jpe?g|gif|webp|svg|woff2?|ttf|otf)$/i.test(pathname);
 }
 
 function localReleaseResponse(response, requestOrUrl) {
@@ -194,9 +220,11 @@ function fetchReleaseWithFallback(requestOrUrl, options = {}) {
     let finished = false;
     let fallbackStarted = false;
     let failures = 0;
-    const complete = (index, response) => {
+    const complete = async (index, response) => {
       if (finished) return;
-      if (!validReleaseResponse(response, requestOrUrl)) {
+      const valid = await validReleaseResponse(response, requestOrUrl);
+      if (finished) return;
+      if (!valid) {
         failed(index);
         return;
       }
@@ -209,7 +237,7 @@ function fetchReleaseWithFallback(requestOrUrl, options = {}) {
       if (finished || fallbackStarted) return;
       fallbackStarted = true;
       fetchMobileDataFallback(requestOrUrl, controllers[1].signal).then(
-        (response) => complete(1, response), () => failed(1),
+        (response) => complete(1, response).catch(() => failed(1)), () => failed(1),
       );
     };
     const failed = (index) => {
@@ -224,7 +252,7 @@ function fetchReleaseWithFallback(requestOrUrl, options = {}) {
     };
     const hedgeTimer = setTimeout(startFallback, MOBILE_DATA_FALLBACK_DELAY_MS);
     fetchWithDeadline(requestOrUrl, { ...options, signal: controllers[0].signal }).then(
-      (response) => complete(0, response), () => failed(0),
+      (response) => complete(0, response).catch(() => failed(0)), () => failed(0),
     );
   });
 }
@@ -269,8 +297,6 @@ function filesForEntry(manifest, entryKey, visited) {
   visited.add(entryKey);
   const entry = manifest[entryKey];
   if (!entry) return [];
-  // Release CSS is embedded in index.html so a phone never has to complete a
-  // second critical request before the interface becomes usable.
   const files = [entry.file, ...(entry.assets || [])].filter(Boolean);
   for (const importedKey of entry.imports || []) {
     files.push(...filesForEntry(manifest, importedKey, visited));
@@ -289,7 +315,7 @@ function warmAppShell() {
   if (lastWarmAt && Date.now() - lastWarmAt < 300_000) return Promise.resolve();
   warming = (async () => {
     const manifest = await readReleaseManifest();
-    const files = ['index.html', 'offline.html', 'manifest.webmanifest', ...criticalReleaseFiles(manifest)];
+    const files = ['index.html', 'offline.html', 'manifest.webmanifest', 'full-circle-release.css', ...criticalReleaseFiles(manifest)];
     // Two background fetches at most, and never fetch already-cached chunks.
     let next = 0;
     const fill = async () => {
@@ -343,7 +369,11 @@ async function recoverFallbackClient(client) {
     const target = new URL(client.url);
     if (target.origin !== self.location.origin) return;
     const scopePath = new URL(self.registration.scope).pathname;
-    if (!target.pathname.startsWith(scopePath) || target.pathname.endsWith('/offline.html')) {
+    if (
+      !target.pathname.startsWith(scopePath)
+      || target.pathname.endsWith('/offline.html')
+      || isReleaseAssetPath(target.pathname)
+    ) {
       target.pathname = scopePath;
       target.search = '';
       target.hash = '';
@@ -384,12 +414,15 @@ async function cachedAppShell() {
     const cache = await caches.open(SHELL_CACHE);
     const response = (await cache.match(scopedUrl('index.html'), { ignoreVary: true }))
       || (await cache.match(scopedUrl(''), { ignoreVary: true }));
-    return response ? localReleaseResponse(response, scopedUrl('index.html')) : null;
+    if (!response || !await validReleaseResponse(response, scopedUrl('index.html'))) return null;
+    return localReleaseResponse(response, scopedUrl('index.html'));
   });
 }
 
 async function networkFirstNavigation(request, event) {
-  const networkRequest = fetchReleaseWithFallback(request, { cache: 'no-store' }).then((response) => {
+  const requestedPath = new URL(request.url).pathname;
+  const releaseRequest = isReleaseAssetPath(requestedPath) ? scopedUrl('index.html') : request;
+  const networkRequest = fetchReleaseWithFallback(releaseRequest, { cache: 'no-store' }).then((response) => {
     keepAlive(event, safeCachePut(SHELL_CACHE, scopedUrl('index.html'), response.clone()));
     return response;
   });
@@ -402,16 +435,21 @@ async function networkFirstNavigation(request, event) {
     const cached = await cachedAppShell();
     if (cached) return cached;
     const offline = await cacheRead(() => caches.match(scopedUrl('offline.html'), { ignoreVary: true }));
-    return offline ? localReleaseResponse(offline, scopedUrl('offline.html')) : new Response('Full Circle is reconnecting. Please try again.', {
-      status: 503,
-      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
-    });
+    return offline ? localReleaseResponse(offline, scopedUrl('offline.html')) : emergencyRecoveryResponse();
   }
+}
+
+function emergencyRecoveryResponse() {
+  const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#0f2037"><title>Full Circle</title><style>html,body{min-height:100%;margin:0;background:#0f2037;color:#fff;font-family:system-ui,-apple-system,sans-serif}main{min-height:100vh;display:flex;align-items:center;justify-content:center;box-sizing:border-box;padding:24px;text-align:center}div{width:min(100%,360px)}button{margin-top:18px;border:0;border-radius:8px;padding:12px 18px;background:#ffd83d;color:#0f2037;font:800 14px system-ui}</style></head><body><main><div><h1 style="font-size:18px">Full Circle is reconnecting.</h1><p style="color:#cbd5e1;font-size:13px;line-height:1.5">Your account and progress are safe.</p><button onclick="location.reload()">Try Again</button></div></main></body></html>`;
+  return new Response(html, {
+      status: 503,
+      headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' },
+  });
 }
 
 async function cacheFirstAsset(request, event) {
   const cached = await cacheRead(() => caches.match(request, { ignoreSearch: true, ignoreVary: true }));
-  if (cached && validReleaseResponse(cached, request)) return localReleaseResponse(cached, request);
+  if (cached && await validReleaseResponse(cached, request)) return localReleaseResponse(cached, request);
   const response = await fetchReleaseWithFallback(request);
   keepAlive(event, safeCachePut(ASSET_CACHE, request, response.clone()));
   return response;
@@ -437,7 +475,8 @@ self.addEventListener('fetch', (event) => {
 
   const scopePath = new URL(self.registration.scope).pathname;
   if (!url.pathname.startsWith(scopePath)) return;
-  if (/\/assets\/[^/]+-[A-Za-z0-9_-]+\.(?:js|css|png|jpe?g|webp|svg|woff2?)$/i.test(url.pathname)) {
+  if (/\/assets\/[^/]+-[A-Za-z0-9_-]+\.(?:js|css|png|jpe?g|webp|svg|woff2?)$/i.test(url.pathname)
+    || url.pathname.endsWith('/full-circle-release.css')) {
     event.respondWith(cacheFirstAsset(request, event));
   } else if (url.pathname.includes('/icons/')) {
     event.respondWith(cacheFirstShellFile(request, event));
@@ -465,7 +504,7 @@ self.addEventListener('push', (event) => {
         ? [900, 150, 900, 150, 1200]
         : isScriptureAlarm ? [1200, 120, 1200, 120, 1600] : [200, 100, 200],
       data: {
-        url: data.url ? scopedUrl(data.url) : self.registration.scope,
+        url: safeAppNavigationUrl(data.url),
         dateOfArrival: Date.now(),
       },
       actions: data.actions || [],
@@ -492,7 +531,7 @@ self.addEventListener('notificationclick', (event) => {
 
   event.waitUntil((async () => {
     const windowClients = await clients.matchAll({ type: 'window', includeUncontrolled: true });
-    const targetUrl = new URL(urlToOpen, self.registration.scope);
+    const targetUrl = new URL(safeAppNavigationUrl(urlToOpen));
 
     for (const client of windowClients) {
       if (new URL(client.url).pathname !== targetUrl.pathname) continue;
@@ -510,6 +549,22 @@ self.addEventListener('notificationclick', (event) => {
     if (clients.openWindow) await clients.openWindow(targetUrl.href);
   })());
 });
+
+function safeAppNavigationUrl(value) {
+  const scopeUrl = new URL(self.registration.scope);
+  try {
+    const target = new URL(value || scopeUrl.href, scopeUrl);
+    if (
+      target.origin !== scopeUrl.origin
+      || !target.pathname.startsWith(scopeUrl.pathname)
+      || target.pathname.endsWith('/offline.html')
+      || isReleaseAssetPath(target.pathname)
+    ) return scopeUrl.href;
+    return target.href;
+  } catch {
+    return scopeUrl.href;
+  }
+}
 
 self.addEventListener('notificationclose', (event) => {
   event.waitUntil(Promise.resolve());
