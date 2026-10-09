@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f2037" />
+  <meta name="description" content="Full Circle is a gamified discipleship platform with daily Bible quizzes, streak tracking, tent houses, leaderboards, and scripture meditation." />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Full Circle" />
+  <meta name="format-detection" content="telephone=no" />
+  <meta name="application-name" content="Full Circle" />
+  <meta name="full-circle-release" content="181" />
+  <meta name="msapplication-TileColor" content="#0f2037" />
+  <meta name="msapplication-TileImage" content="./icons/icon-144.png?v=7" />
+  <meta name="msapplication-config" content="./browserconfig.xml" />
+  <meta name="referrer" content="strict-origin-when-cross-origin" />
+  <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+  <link rel="canonical" href="https://fullcircle.partnertai.com/" />
+
+  <!-- This tiny shell is deliberately kept inline. The complete application
+       stylesheet is verified separately before React is allowed to mount. -->
+  <style data-full-circle-critical-styles="181">
+    html,body,#root{min-height:100%;margin:0;background:#0f2037;color:#fff;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    html::before{content:"Opening Full Circle";position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#0f2037;color:#dde3ff;font:700 15px system-ui;z-index:0}
+    body{position:relative;z-index:1}
+    [data-fc-boot-shell],[data-fc-recovery-shell]{min-height:100vh;display:flex;align-items:center;justify-content:center;box-sizing:border-box;padding:24px;text-align:center;background:#0f2037}
+    [data-fc-boot-shell]>div,[data-fc-recovery-shell]>div{width:min(100%,360px)}
+    [data-fc-boot-shell] img{display:block;margin:0 auto 16px}
+    [data-fc-boot-shell] p,[data-fc-recovery-shell] p{margin:0}
+    [data-fc-recovery-shell] button{margin-top:18px;border:0;border-radius:8px;padding:12px 18px;background:#ffd83d;color:#0f2037;font:800 14px system-ui;cursor:pointer}
+  </style>
+
+  <script>
+    // The app is also opened inside older Android and social-app WebViews.
+    // Supply the small ES2019/2020 helpers used by the release bundles.
+    if (!Array.prototype.flatMap) {
+      Object.defineProperty(Array.prototype, 'flatMap', {
+        configurable: true,
+        writable: true,
+        value: function (callback, thisArg) {
+          return this.reduce(function (result, item, index, array) {
+            return result.concat(callback.call(thisArg, item, index, array));
+          }, []);
+        }
+      });
+    }
+    if (!Object.fromEntries) {
+      Object.fromEntries = function (entries) {
+        return Array.from(entries).reduce(function (result, entry) {
+          result[entry[0]] = entry[1];
+          return result;
+        }, {});
+      };
+    }
+    if (!String.prototype.matchAll) {
+      Object.defineProperty(String.prototype, 'matchAll', {
+        configurable: true,
+        writable: true,
+        value: function (expression) {
+          if (!(expression instanceof RegExp) || !expression.global) {
+            throw new TypeError('String.prototype.matchAll requires a global RegExp');
+          }
+          var source = String(this);
+          var matcher = new RegExp(expression.source, expression.flags);
+          var matches = [];
+          var match;
+          while ((match = matcher.exec(source)) !== null) {
+            matches.push(match);
+            if (match[0] === '') matcher.lastIndex += 1;
+          }
+          return matches;
+        }
+      });
+    }
+    if (!Promise.allSettled) {
+      Promise.allSettled = function (promises) {
+        return Promise.all(Array.from(promises).map(function (promise) {
+          return Promise.resolve(promise).then(
+            function (value) { return { status: 'fulfilled', value: value }; },
+            function (reason) { return { status: 'rejected', reason: reason }; }
+          );
+        }));
+      };
+    }
+  </script>
+
+  <script>
+    // Some older home-screen shortcuts were saved with a www hostname. Once
+    // that hostname reaches Hostinger, move it to the single supported origin
+    // before loading the manifest, worker, fonts, or application bundle.
+    if (window.location.hostname.toLowerCase() === 'www.fullcircle.partnertai.com') {
+      var canonicalUrl = new URL(window.location.href);
+      canonicalUrl.protocol = 'https:';
+      canonicalUrl.hostname = 'fullcircle.partnertai.com';
+      canonicalUrl.port = '';
+      window.location.replace(canonicalUrl.toString());
+    }
+    // A retired shortcut or malformed notification must never leave a user on
+    // a JavaScript/CSS document. When an SPA host returns this shell for such a
+    // navigation, immediately restore the real application route.
+    if (/\/assets\/|\.(?:js|mjs|css|json|map)$/i.test(window.location.pathname)) {
+      var assetSegment = window.location.pathname.toLowerCase().lastIndexOf('/assets/');
+      var appPath = assetSegment >= 0
+        ? window.location.pathname.slice(0, assetSegment + 1)
+        : window.location.pathname.slice(0, window.location.pathname.lastIndexOf('/') + 1);
+      var appUrl = new URL(appPath || '/', window.location.origin);
+      appUrl.searchParams.set('fc-asset-recovery', '181');
+      window.location.replace(appUrl.toString());
+    }
+  </script>
+
+  <!-- Manifest -->
+  <link rel="manifest" href="./manifest.webmanifest?v=181" />
+
+  <!-- Icons -->
+  <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png?v=7" />
+  <link rel="icon" type="image/png" sizes="72x72" href="./icons/icon-72.png?v=7" />
+  <link rel="icon" type="image/png" sizes="96x96" href="./icons/icon-96.png?v=7" />
+  <link rel="icon" type="image/png" sizes="128x128" href="./icons/icon-128.png?v=7" />
+  <link rel="icon" type="image/png" sizes="144x144" href="./icons/icon-144.png?v=7" />
+  <link rel="icon" type="image/png" sizes="152x152" href="./icons/icon-152.png?v=7" />
+  <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png?v=7" />
+  <link rel="icon" type="image/png" sizes="384x384" href="./icons/icon-384.png?v=7" />
+  <link rel="icon" type="image/png" sizes="512x512" href="./icons/icon-512.png?v=7" />
+
+  <!-- Apple Touch Icons -->
+  <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png?v=7" />
+  <link rel="apple-touch-icon" sizes="152x152" href="./icons/icon-152.png?v=7" />
+  <link rel="apple-touch-icon" sizes="167x167" href="./icons/icon-167.png?v=7" />
+  <link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png?v=7" />
+
+  <!-- Apple Splash Screen -->
+  <link rel="apple-touch-startup-image" media="(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2)" href="./icons/apple-splash-640x1136.png?v=7" />
+  <link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2)" href="./icons/apple-splash-750x1334.png?v=7" />
+  <link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2)" href="./icons/apple-splash-828x1792.png?v=7" />
+  <link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3)" href="./icons/apple-splash-1125x2436.png?v=7" />
+  <link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3)" href="./icons/apple-splash-1242x2688.png?v=7" />
+  <link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 736px) and (-webkit-device-pixel-ratio: 3)" href="./icons/apple-splash-1242x2208.png?v=7" />
+  <link rel="apple-touch-startup-image" media="(device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2)" href="./icons/apple-splash-2048x2732.png?v=7" />
+  <link rel="apple-touch-startup-image" media="(device-width: 834px) and (device-height: 1194px) and (-webkit-device-pixel-ratio: 2)" href="./icons/apple-splash-1668x2388.png?v=7" />
+  <link rel="apple-touch-startup-image" media="(device-width: 834px) and (device-height: 1112px) and (-webkit-device-pixel-ratio: 2)" href="./icons/apple-splash-1668x2224.png?v=7" />
+  <link rel="apple-touch-startup-image" media="(device-width: 768px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2)" href="./icons/apple-splash-1536x2048.png?v=7" />
+
+  <!-- Open Graph / Social -->
+  <meta property="og:title" content="Full Circle" />
+  <meta property="og:description" content="Gamified discipleship platform with daily Bible quizzes, streak tracking, and leaderboards." />
+  <meta property="og:type" content="website" />
+  <meta property="og:image" content="https://fullcircle.partnertai.com/social/fullcircle-share.jpeg?v=7" />
+  <meta property="og:image:width" content="1280" />
+  <meta property="og:image:height" content="977" />
+  <meta property="og:url" content="https://fullcircle.partnertai.com" />
+  <meta property="og:locale" content="en_US" />
+  <meta property="og:site_name" content="Full Circle" />
+
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Full Circle" />
+  <meta name="twitter:description" content="Gamified discipleship platform with daily Bible quizzes, streak tracking, and leaderboards." />
+  <meta name="twitter:image" content="https://fullcircle.partnertai.com/social/fullcircle-share.jpeg?v=7" />
+
+  <!-- Keep the database connection warm. -->
+  <link rel="preconnect" href="https://nffqohxdelaglrmuzjwb.supabase.co" crossorigin />
+  <link rel="dns-prefetch" href="https://nffqohxdelaglrmuzjwb.supabase.co" />
+
+  <!-- Start the small, non-blocking brand-font request during HTML parsing.
+       Waiting for window.load made typography depend on every artwork request. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+  <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;500;600;700;800&family=Nunito:wght@400;500;600;700;800;900&family=VT323&display=swap" data-full-circle-fonts="true" onload="this.onload=null;this.rel='stylesheet'" />
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;500;600;700;800&family=Nunito:wght@400;500;600;700;800;900&family=VT323&display=swap" rel="stylesheet" /></noscript>
+
+  <!-- Release-aware recovery for installed and in-browser copies. -->
+  <title>Full Circle</title>
+  <script>
+    // A pre-migration worker may still control an installed phone. Keep normal
+    // updates quiet, but let an explicit retry verify the network and replace
+    // every Full Circle shell cache that could be trapping the phone.
+    (function () {
+      var release = '181';
+      var currentCachePrefix = 'full-circle-target-v181';
+      var marker = 'fc-repair';
+      var repairStarted = false;
+      var mirrorStarted = false;
+      var styleAttempt = 0;
+      var styleTimer = 0;
+      window.__fullCircleBootRelease = release;
+      window.__fullCircleStylesReady = false;
+
+      window.__showFullCircleRecovery = function () {
+        var show = function () {
+          var root = document.getElementById('root');
+          if (!root || root.dataset.fcAppMounted === 'true') return;
+          root.innerHTML = '<div data-fc-recovery-shell><div><p style="font-size:16px;font-weight:800">Full Circle is reconnecting.</p><p style="margin-top:9px;color:#cbd5e1;font-size:13px;line-height:1.5">Your account and progress are safe.</p><button data-fc-retry type="button" onclick="window.__repairFullCircleBoot(true)">Try Again</button><p style="margin-top:14px;color:#94a3b8;font-size:11px">Release ' + release + '</p></div></div>';
+        };
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', show, { once: true });
+        else show();
+      };
+
+      window.__markFullCircleStylesReady = function (link) {
+        window.requestAnimationFrame(function () {
+          var markerValue = window.getComputedStyle(document.documentElement)
+            .getPropertyValue('--full-circle-release-style')
+            .replace(/["']/g, '')
+            .trim();
+          if (markerValue !== release) {
+            window.__loadFullCircleStyleMirror(link);
+            return;
+          }
+          window.clearTimeout(styleTimer);
+          window.__fullCircleStylesReady = true;
+          document.documentElement.dataset.fcStylesReady = release;
+          window.dispatchEvent(new CustomEvent('fullcircle:styles-ready', { detail: { release: release } }));
+        });
+      };
+
+      window.__loadFullCircleStyleMirror = function (failedLink) {
+        var link = failedLink || document.querySelector('link[data-full-circle-release-styles]');
+        if (!link || window.__fullCircleStylesReady) return;
+        window.clearTimeout(styleTimer);
+        if (!link.dataset.fcStylePrimary) link.dataset.fcStylePrimary = link.href;
+        var baseUrl = new URL('.', link.dataset.fcStylePrimary);
+        var candidates = [
+          new URL('full-circle-release.css?fc-style=' + release + '-' + Date.now(), baseUrl).href,
+          'https://cdn.jsdelivr.net/gh/TNSorganization/Full-Circle@gh-pages/full-circle-release.css?v=' + release,
+          'https://raw.githack.com/TNSorganization/Full-Circle/gh-pages/full-circle-release.css?v=' + release
+        ];
+        if (styleAttempt >= candidates.length) {
+          window.__showFullCircleRecovery();
+          return;
+        }
+        link.href = candidates[styleAttempt++];
+        styleTimer = window.setTimeout(function () {
+          window.__loadFullCircleStyleMirror(link);
+        }, 6000);
+      };
+
+      function releaseFromDocument(html) {
+        var tags = String(html || '').match(/<meta\b[^>]*>/gi) || [];
+        for (var index = 0; index < tags.length; index += 1) {
+          if (!/\bname=["']full-circle-release["']/i.test(tags[index])) continue;
+          var match = tags[index].match(/\bcontent=["'](\d+)["']/i);
+          return match ? Number(match[1]) : 0;
+        }
+        return 0;
+      }
+
+      async function verifiedNetworkShell() {
+        var appBaseUrl = new URL('./', window.location.href);
+        var probeUrl = new URL('index.html', appBaseUrl);
+        probeUrl.searchParams.set('fc-connectivity', release);
+        probeUrl.searchParams.set('ts', String(Date.now()));
+        var response = await Promise.race([
+          fetch(probeUrl.href, { cache: 'no-store', headers: { Accept: 'text/html' } }),
+          new Promise(function (_, reject) {
+            window.setTimeout(function () { reject(new Error('Connection timed out.')); }, 15000);
+          })
+        ]);
+        if (!response || !response.ok) return false;
+        var contentType = response.headers.get('content-type') || '';
+        if (!/text\/html|application\/xhtml\+xml/i.test(contentType)) return false;
+        var html = await response.text();
+        return releaseFromDocument(html) >= Number(release) && /id=["']root["']/.test(html);
+      }
+
+      window.__repairFullCircleBoot = async function (force) {
+        if (repairStarted) return;
+        repairStarted = true;
+
+        var retryButton = document.querySelector('[data-fc-retry]');
+        if (retryButton) {
+          retryButton.disabled = true;
+          retryButton.textContent = 'Reconnecting...';
+        }
+
+        try {
+          if ('serviceWorker' in navigator) {
+            var registration = await navigator.serviceWorker.getRegistration().catch(function () { return null; });
+            if (registration) {
+              await Promise.race([
+                registration.update().catch(function () {}),
+                new Promise(function (resolve) { window.setTimeout(resolve, 4000); })
+              ]);
+              if (registration.waiting) registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+              if (!force && registration.active) registration.active.postMessage({ type: 'CLEAR_RETIRED_CACHES' });
+            }
+          }
+          if (force && !await verifiedNetworkShell()) throw new Error('Full Circle is not reachable yet.');
+          if (force && registration) {
+            var recoveryWorker = registration.active || registration.waiting || registration.installing;
+            if (recoveryWorker) recoveryWorker.postMessage({ type: 'RESET_APP_SHELL' });
+          }
+          if ('caches' in window) {
+            var cacheNames = await window.caches.keys().catch(function () { return []; });
+            await Promise.all(cacheNames.filter(function (cacheName) {
+              return cacheName.indexOf('full-circle-') === 0
+                && (force || cacheName.indexOf(currentCachePrefix) !== 0);
+            }).map(function (cacheName) {
+              return window.caches.delete(cacheName);
+            })).catch(function () {});
+          }
+        } catch (error) {
+          repairStarted = false;
+          if (retryButton) {
+            retryButton.disabled = false;
+            retryButton.textContent = 'Still reconnecting - Try Again';
+          }
+          return;
+        }
+
+        try {
+          var freshUrl = new URL(window.location.href);
+          freshUrl.searchParams.set(marker, release);
+          freshUrl.searchParams.set('ts', String(Date.now()));
+          if (force) window.location.replace(freshUrl.toString());
+          else repairStarted = false;
+        } catch (error) {
+          repairStarted = false;
+        }
+      };
+
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker
+          .register('./fc-worker.js?v=181', { updateViaCache: 'none' })
+          .then(function (registration) { return registration.update(); })
+          .catch(function () {});
+      }
+      if (new URL(window.location.href).searchParams.get(marker) === release) {
+        void window.__repairFullCircleBoot(false);
+      }
+
+      // If the page itself arrives but its application bundle is blocked by a
+      // carrier or a partial CDN rollout, load that same immutable bundle from
+      // an independent CDN. This keeps the user's session on the current
+      // origin and avoids sending them through a second sign-in.
+      window.__loadFullCircleMirror = function (failedSource) {
+        if (mirrorStarted || !failedSource) return;
+        var failedUrl = new URL(failedSource, window.location.href);
+        var assetMarker = failedUrl.pathname.lastIndexOf('/assets/');
+        if (assetMarker < 0) return;
+        mirrorStarted = true;
+        var assetPath = failedUrl.pathname.slice(assetMarker + 1);
+        var mirrors = [
+          'https://cdn.jsdelivr.net/gh/TNSorganization/Full-Circle@gh-pages/',
+          'https://raw.githack.com/TNSorganization/Full-Circle/gh-pages/'
+        ];
+        var loadMirror = function (index) {
+          if (index >= mirrors.length) {
+            mirrorStarted = false;
+            return;
+          }
+          var script = document.createElement('script');
+          script.type = 'module';
+          script.crossOrigin = 'anonymous';
+          script.src = mirrors[index] + assetPath + '?fc-mirror=' + release;
+          script.onload = function () { mirrorStarted = false; };
+          script.onerror = function () {
+            script.remove();
+            loadMirror(index + 1);
+          };
+          document.head.appendChild(script);
+        };
+        loadMirror(0);
+      };
+
+      window.addEventListener('DOMContentLoaded', function () {
+        window.setTimeout(function () {
+          if (window.__fullCircleStylesReady) return;
+          window.__loadFullCircleStyleMirror(
+            document.querySelector('link[data-full-circle-release-styles]')
+          );
+        }, 6000);
+      }, { once: true });
+    })();
+  </script>
+  <script type="module" crossorigin src="./assets/index-Bj8WSK3L.js" onerror="window.__loadFullCircleMirror(this.src)"></script>
+  <link rel="modulepreload" crossorigin href="./assets/app-runtime-DpNgz4Wy.js">
+  <link rel="stylesheet" href="./full-circle-release.css?v=181" data-full-circle-release-styles="true" onload="window.__markFullCircleStylesReady(this)" onerror="window.__loadFullCircleStyleMirror(this)">
+</head>
+<body>
+  <main id="root">
+    <div data-fc-boot-shell>
+      <div>
+        <img src="./icons/icon-192.png?v=7" width="82" height="82" alt="" />
+        <p style="margin:0;font-size:15px;font-weight:700;color:#dde3ff">Opening Full Circle</p>
+        <p style="margin:8px 0 0;font-size:12px;color:#aebbe5">Restoring your saved app while the connection settles.</p>
+      </div>
+    </div>
+  </main>
+  <script>
+    // If an older phone cannot execute the application bundle, leave it a
+    // usable recovery action instead of a permanent blank screen.
+    window.__fullCircleBootWatchdog = window.setTimeout(function () {
+      var root = document.getElementById('root');
+      if (!root || root.dataset.fcAppMounted === 'true') return;
+      window.__showFullCircleRecovery();
+    }, 30000);
+  </script>
+</body>
+</html>
