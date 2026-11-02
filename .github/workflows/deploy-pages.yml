@@ -1,6 +1,11 @@
 name: Keep Full Circle Online
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'dist/**'
+      - '.github/workflows/deploy-pages.yml'
   schedule:
     - cron: '17 * * * *'
   workflow_dispatch:
