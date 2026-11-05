@@ -1,0 +1,6 @@
+{
+  "release": 226,
+  "source_repository": "Partner700/Fullcircle",
+  "source_commit": "121c2d855cb58a8470480daa81e1b45c181529cb",
+  "note": "Deploy the verified dist package through the existing production workflow."
+}
