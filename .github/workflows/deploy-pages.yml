@@ -67,20 +67,6 @@ jobs:
           path: release
           name: github-pages-${{ github.run_id }}-${{ github.run_attempt }}
 
-      - name: Clear the stalled Release 232 deployment
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          state="$(gh api repos/TNSorganization/Full-Circle/pages/deployments/470e6ed293730cd50d0d46e8d0c1d2105d7e25bc --jq '.status')"
-          case "$state" in
-            queued|building|updating_pages|deployment_in_progress)
-              gh api --method POST repos/TNSorganization/Full-Circle/pages/deployments/470e6ed293730cd50d0d46e8d0c1d2105d7e25bc/cancel
-              ;;
-            *) echo "Earlier deployment status: $state" ;;
-          esac
-
       - name: Deploy the app
         id: deployment
         uses: actions/deploy-pages@v4
