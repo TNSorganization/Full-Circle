@@ -1,3 +1,3 @@
-Release 239
+Release 240
 Source: Partner700/Fullcircle
-Commit: f3b1ecf60b0833af0a382c4bc39da092ba96c320
+Commit: 1c33c5c18ebd141f39cc1114dbddd13f04dfaca8
