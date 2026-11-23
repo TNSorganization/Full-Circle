@@ -40,6 +40,7 @@ jobs:
 
           test -f source/dist/index.html
           test -f source/dist/fc-worker.js
+          test -f source/dist/offline.html
           test -f source/dist/release-manifest.json
           test -d source/dist/assets
           node --check source/dist/fc-worker.js
