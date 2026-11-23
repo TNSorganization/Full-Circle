@@ -7,7 +7,7 @@ on:
       - 'dist/**'
       - '.github/workflows/deploy-pages.yml'
   schedule:
-    - cron: '17 * * * *'
+    - cron: '*/10 * * * *'
   workflow_dispatch:
 
 permissions:
@@ -61,19 +61,41 @@ jobs:
           ! grep -R -Fq 'kckzqsafzemeijxfohuy' release
           grep -Fq 'ovusyeqbmtvfcrlflrbf' "release/${expected#./}"
 
+      - name: Check if this release is already live
+        id: release_check
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          expected="$(tr -d '\r\n' < release/.fullcircle-source-sha)"
+          deployed="$(curl -fsSL --retry 1 --connect-timeout 4 --max-time 12 \
+            -H 'Cache-Control: no-cache' \
+            'https://tnsorganization.github.io/Full-Circle/.fullcircle-source-sha' 2>/dev/null || true)"
+          deployed="$(printf '%s' "$deployed" | tr -d '\r\n')"
+          if [ "$GITHUB_EVENT_NAME" != 'workflow_dispatch' ] && [ -n "$expected" ] && [ "$deployed" = "$expected" ]; then
+            echo "Release $expected is already live; no upload necessary."
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Publishing source release $expected."
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Configure GitHub Pages
+        if: steps.release_check.outputs.deploy == 'true'
         uses: actions/configure-pages@v5
 
       - name: Upload the verified app
+        if: steps.release_check.outputs.deploy == 'true'
         uses: actions/upload-pages-artifact@v3
         with:
           path: release
           name: github-pages-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Wait for Pages artifact indexing
+        if: steps.release_check.outputs.deploy == 'true'
         run: sleep 25
 
       - name: Deploy the app
+        if: steps.release_check.outputs.deploy == 'true'
         id: deployment
         uses: actions/deploy-pages@v4
         with:
