@@ -1,4 +1,5 @@
 name: Build and publish current Full Circle
+run-name: Publish latest canonical Full Circle source
 
 on:
   push:
