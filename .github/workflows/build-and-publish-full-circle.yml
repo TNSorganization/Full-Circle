@@ -1,0 +1,75 @@
+name: Build and publish current Full Circle
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: '17 */2 * * *'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: full-circle-current-build
+  cancel-in-progress: false
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout canonical Full Circle source
+        uses: actions/checkout@v4
+        with:
+          repository: Partner700/Fullcircle
+          ref: main
+          path: source
+          persist-credentials: false
+
+      - name: Record canonical source version
+        id: source
+        working-directory: source
+        run: |
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: source/package-lock.json
+
+      - name: Install locked application dependencies
+        working-directory: source
+        run: npm ci --no-audit --no-fund
+
+      - name: Check TypeScript
+        working-directory: source
+        run: npm run typecheck
+
+      - name: Verify mobile and published-release checks
+        working-directory: source
+        run: npm run test:mobile
+
+      - name: Build current application from source
+        working-directory: source
+        run: npm run build
+
+      - name: Prepare GitHub Pages artifact
+        run: |
+          test -s source/dist/index.html
+          cp source/dist/index.html source/dist/404.html
+          touch source/dist/.nojekyll
+          echo "${{ steps.source.outputs.sha }}" > source/dist/full-circle-source-sha.txt
+          test -s source/dist/fc-worker.js
+
+      - name: Publish independent GitHub Pages mirror
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: ./source/dist
+          force_orphan: false
+          keep_files: false
+          commit_message: 'Publish verified Full Circle source ${{ steps.source.outputs.sha }}'
