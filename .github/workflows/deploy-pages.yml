@@ -1,3 +1,4 @@
+# Trigger mirror publication after verified secure Fapshi checkout fallback build.
 name: Keep Full Circle Online
 
 on:
