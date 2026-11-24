@@ -53,7 +53,7 @@ jobs:
         working-directory: source
         run: node --experimental-strip-types scripts/mobile-runtime-resilience.test.ts
 
-      # Verify current-release assets, safe offline recovery, and bounded recovery timers.
+      # Publish revised group total points, draggable Mines and broader Scripture discoveries.
       - name: Verify startup and offline recovery
         working-directory: source
         run: node scripts/startup-resilience.test.cjs
