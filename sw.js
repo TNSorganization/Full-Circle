@@ -1,11 +1,11 @@
 // This cache namespace belongs only to the restored Supabase project. Never
 // reuse a pre-cutover shell: those bundles still address the restricted
 // project and can make an online phone appear permanently offline.
-const CACHE_VERSION = 'full-circle-target-v263';
-const CACHE_STORAGE_VERSION = 'full-circle-target-v263';
+const CACHE_VERSION = 'full-circle-target-v295';
+const CACHE_STORAGE_VERSION = 'full-circle-target-v295';
 const SHELL_CACHE = `${CACHE_STORAGE_VERSION}-shell`;
 const ASSET_CACHE = `${CACHE_STORAGE_VERSION}-assets`;
-const RECOVERY_MARKER = '263';
+const RECOVERY_MARKER = CACHE_VERSION.split('-v').pop();
 const MINIMUM_SAFE_RELEASE = 177;
 const RECOVERY_QUERY_KEYS = [
   'fc-asset-recovery',
@@ -76,6 +76,7 @@ async function clearRetiredFullCircleCaches() {
     isFullCircleCache(cacheName)
     && cacheName !== SHELL_CACHE
     && cacheName !== ASSET_CACHE
+    && !/^full-circle-target-v(?:17[7-9]|18\d|19\d|[2-9]\d{2,})-(?:shell|assets)$/.test(cacheName)
   ));
   await Promise.all(
     retiredCacheNames.map((cacheName) => caches.delete(cacheName)),
@@ -429,7 +430,10 @@ self.addEventListener('message', (event) => {
   } else if (event.data.type === 'CLEAR_RETIRED_CACHES') {
     event.waitUntil(clearRetiredFullCircleCaches().catch(() => undefined));
   } else if (event.data.type === 'RESET_APP_SHELL') {
-    event.waitUntil(clearAllFullCircleCaches().catch(() => undefined));
+    // An explicit retry may occur on a broken mobile connection. Preserve
+    // the last verified shell while attempting to refill missing assets.
+    lastWarmAt = 0;
+    event.waitUntil(warmAppShell());
   } else if (event.data.type === 'WARM_APP_SHELL') {
     // Warm only the entry shell. Fetching every lazy game and admin screen at
     // launch can saturate a mobile connection and delay the screen being used.
@@ -449,20 +453,27 @@ self.addEventListener('message', (event) => {
 
 async function cachedAppShell() {
   return cacheRead(async () => {
-    const cache = await caches.open(SHELL_CACHE);
-    const response = (await cache.match(scopedUrl('index.html'), { ignoreVary: true }))
-      || (await cache.match(scopedUrl(''), { ignoreVary: true }));
-    if (!response || !await validReleaseResponse(response, scopedUrl('index.html'))) return null;
-    return localReleaseResponse(response, scopedUrl('index.html'));
+    const names = await caches.keys();
+    // Older installed workers may have cached this very release in an
+    // earlier namespace. Reuse it only if its actual document is current.
+    for (const name of [SHELL_CACHE, ...names.filter(name => name !== SHELL_CACHE && /^full-circle-target-v\d+-shell$/.test(name))]) {
+      const cache = await caches.open(name);
+      const response = (await cache.match(scopedUrl('index.html'), { ignoreVary: true }))
+        || (await cache.match(scopedUrl(''), { ignoreVary: true }));
+      if (!response || !await validReleaseResponse(response, scopedUrl('index.html'), name === SHELL_CACHE ? MINIMUM_SAFE_RELEASE : Number(RECOVERY_MARKER))) continue;
+      return localReleaseResponse(response, scopedUrl('index.html'));
+    }
+    return null;
   });
 }
 
 async function networkFirstNavigation(request, event) {
-  const requestedPath = new URL(request.url).pathname;
-  const releaseRequest = isReleaseAssetPath(requestedPath) ? scopedUrl('index.html') : request;
+  // Recovery timestamps and share parameters are navigation state, not
+  // deployment identifiers. A stable URL also works with carrier/CDN caches.
+  const releaseRequest = scopedUrl('index.html');
   const forceNetwork = isRecoveryNavigation(request.url);
   const networkRequest = fetchReleaseWithFallback(releaseRequest, {
-    cache: 'no-store',
+    cache: forceNetwork ? 'reload' : 'default',
     minimumDocumentRelease: Number(RECOVERY_MARKER),
     hedgeDelay: NAVIGATION_MIRROR_DELAY_MS,
   }).then((response) => {
@@ -487,7 +498,7 @@ async function networkFirstNavigation(request, event) {
 }
 
 function emergencyRecoveryResponse() {
-  const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#0f2037"><title>Full Circle</title><style>html,body{min-height:100%;margin:0;background:#0f2037;color:#fff;font-family:system-ui,-apple-system,sans-serif}main{min-height:100vh;display:flex;align-items:center;justify-content:center;box-sizing:border-box;padding:24px;text-align:center}div{width:min(100%,360px)}button{margin-top:18px;border:0;border-radius:8px;padding:12px 18px;background:#ffd83d;color:#0f2037;font:800 14px system-ui}</style></head><body><main><div><h1 style="font-size:18px">Full Circle is reconnecting.</h1><p style="color:#cbd5e1;font-size:13px;line-height:1.5">Your account and progress are safe.</p><button id="retry" type="button">Try Again</button></div></main><script>document.getElementById('retry').onclick=async function(){this.disabled=true;this.textContent='Reconnecting...';try{if('caches'in window){var names=await caches.keys();await Promise.all(names.filter(function(name){return name.indexOf('full-circle-')===0}).map(function(name){return caches.delete(name)}))}if(navigator.serviceWorker&&navigator.serviceWorker.controller)navigator.serviceWorker.controller.postMessage({type:'RESET_APP_SHELL'})}catch(e){}var target=new URL('./',location.href);target.searchParams.set('fc-emergency','${RECOVERY_MARKER}');target.searchParams.set('ts',String(Date.now()));location.replace(target.href)};<\/script></body></html>`;
+  const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#0f2037"><title>Full Circle</title><style>html,body{min-height:100%;margin:0;background:#0f2037;color:#fff;font-family:system-ui,-apple-system,sans-serif}main{min-height:100vh;display:flex;align-items:center;justify-content:center;box-sizing:border-box;padding:24px;text-align:center}div{width:min(100%,360px)}button{margin-top:18px;border:0;border-radius:8px;padding:12px 18px;background:#ffd83d;color:#0f2037;font:800 14px system-ui}</style></head><body><main><div><h1 style="font-size:18px">Full Circle is reconnecting.</h1><p style="color:#cbd5e1;font-size:13px;line-height:1.5">Your account and progress are safe.</p><button id="retry" type="button">Try Again</button></div></main><script>document.getElementById('retry').onclick=async function(){this.disabled=true;this.textContent='Reconnecting...';try{if(navigator.serviceWorker){var reg=await navigator.serviceWorker.getRegistration();if(reg)await Promise.race([reg.update().catch(function(){}),new Promise(function(resolve){setTimeout(resolve,3000)})]);if(reg&&reg.waiting)reg.waiting.postMessage({type:'SKIP_WAITING'})}}catch(e){}var target=new URL('./',location.href);target.searchParams.set('fc-emergency','${RECOVERY_MARKER}');target.searchParams.set('ts',String(Date.now()));location.replace(target.href)};<\/script></body></html>`;
   return new Response(html, {
       status: 503,
       headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' },

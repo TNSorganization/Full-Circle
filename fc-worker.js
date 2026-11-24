@@ -1,11 +1,11 @@
 // This cache namespace belongs only to the restored Supabase project. Never
 // reuse a pre-cutover shell: those bundles still address the restricted
 // project and can make an online phone appear permanently offline.
-const CACHE_VERSION = 'full-circle-target-v263';
-const CACHE_STORAGE_VERSION = 'full-circle-target-v263';
+const CACHE_VERSION = 'full-circle-target-v296';
+const CACHE_STORAGE_VERSION = 'full-circle-target-v296';
 const SHELL_CACHE = `${CACHE_STORAGE_VERSION}-shell`;
 const ASSET_CACHE = `${CACHE_STORAGE_VERSION}-assets`;
-const RECOVERY_MARKER = '263';
+const RECOVERY_MARKER = CACHE_VERSION.split('-v').pop();
 const MINIMUM_SAFE_RELEASE = 177;
 const RECOVERY_QUERY_KEYS = [
   'fc-asset-recovery',
@@ -72,11 +72,16 @@ function isFullCircleCache(cacheName) {
 
 async function clearRetiredFullCircleCaches() {
   const cacheNames = await caches.keys();
-  const retiredCacheNames = cacheNames.filter((cacheName) => (
-    isFullCircleCache(cacheName)
-    && cacheName !== SHELL_CACHE
-    && cacheName !== ASSET_CACHE
-  ));
+  // Keep only the active release and the immediately preceding release,
+  // which may still be open in another tab. Accumulated older caches can
+  // otherwise exhaust iOS storage and leak outdated CSS into a new install.
+  const previousRelease = Number(RECOVERY_MARKER) - 1;
+  const retiredCacheNames = cacheNames.filter((cacheName) => {
+    if (!isFullCircleCache(cacheName)) return false;
+    if (cacheName === SHELL_CACHE || cacheName === ASSET_CACHE) return false;
+    const match = /^full-circle-target-v(\d+)-(?:shell|assets)$/.exec(cacheName);
+    return !match || Number(match[1]) !== previousRelease;
+  });
   await Promise.all(
     retiredCacheNames.map((cacheName) => caches.delete(cacheName)),
   );
@@ -377,7 +382,14 @@ self.addEventListener('install', (event) => {
 
 self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
-    const retiredCaches = await clearRetiredFullCircleCaches().catch(() => []);
+    // An updating worker must not destroy the last working app before it can
+    // prove that the new shell is reachable. Retain offline-capable caches
+    // during carrier outages; clean the retired set after a current shell
+    // is already verified and cached.
+    const currentShellReady = Boolean(await cachedAppShell().catch(() => null));
+    const retiredCaches = currentShellReady
+      ? await clearRetiredFullCircleCaches().catch(() => [])
+      : [];
     if (self.registration.navigationPreload) {
       await self.registration.navigationPreload.disable().catch(() => undefined);
     }
@@ -429,7 +441,10 @@ self.addEventListener('message', (event) => {
   } else if (event.data.type === 'CLEAR_RETIRED_CACHES') {
     event.waitUntil(clearRetiredFullCircleCaches().catch(() => undefined));
   } else if (event.data.type === 'RESET_APP_SHELL') {
-    event.waitUntil(clearAllFullCircleCaches().catch(() => undefined));
+    // An explicit retry may occur on a broken mobile connection. Preserve
+    // the last verified shell while attempting to refill missing assets.
+    lastWarmAt = 0;
+    event.waitUntil(warmAppShell());
   } else if (event.data.type === 'WARM_APP_SHELL') {
     // Warm only the entry shell. Fetching every lazy game and admin screen at
     // launch can saturate a mobile connection and delay the screen being used.
@@ -448,21 +463,25 @@ self.addEventListener('message', (event) => {
 });
 
 async function cachedAppShell() {
+  // A cached document is safe only when its stylesheet and scripts belong to
+  // this same service-worker release. Never serve an old shell from a retired
+  // cache: older index.html can otherwise request missing or mismatched chunks.
   return cacheRead(async () => {
     const cache = await caches.open(SHELL_CACHE);
     const response = (await cache.match(scopedUrl('index.html'), { ignoreVary: true }))
       || (await cache.match(scopedUrl(''), { ignoreVary: true }));
-    if (!response || !await validReleaseResponse(response, scopedUrl('index.html'))) return null;
+    if (!response || !await validReleaseResponse(response, scopedUrl('index.html'), Number(RECOVERY_MARKER))) return null;
     return localReleaseResponse(response, scopedUrl('index.html'));
   });
 }
 
 async function networkFirstNavigation(request, event) {
-  const requestedPath = new URL(request.url).pathname;
-  const releaseRequest = isReleaseAssetPath(requestedPath) ? scopedUrl('index.html') : request;
+  // Recovery timestamps and share parameters are navigation state, not
+  // deployment identifiers. A stable URL also works with carrier/CDN caches.
+  const releaseRequest = scopedUrl('index.html');
   const forceNetwork = isRecoveryNavigation(request.url);
   const networkRequest = fetchReleaseWithFallback(releaseRequest, {
-    cache: 'no-store',
+    cache: forceNetwork ? 'reload' : 'default',
     minimumDocumentRelease: Number(RECOVERY_MARKER),
     hedgeDelay: NAVIGATION_MIRROR_DELAY_MS,
   }).then((response) => {
@@ -487,7 +506,7 @@ async function networkFirstNavigation(request, event) {
 }
 
 function emergencyRecoveryResponse() {
-  const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#0f2037"><title>Full Circle</title><style>html,body{min-height:100%;margin:0;background:#0f2037;color:#fff;font-family:system-ui,-apple-system,sans-serif}main{min-height:100vh;display:flex;align-items:center;justify-content:center;box-sizing:border-box;padding:24px;text-align:center}div{width:min(100%,360px)}button{margin-top:18px;border:0;border-radius:8px;padding:12px 18px;background:#ffd83d;color:#0f2037;font:800 14px system-ui}</style></head><body><main><div><h1 style="font-size:18px">Full Circle is reconnecting.</h1><p style="color:#cbd5e1;font-size:13px;line-height:1.5">Your account and progress are safe.</p><button id="retry" type="button">Try Again</button></div></main><script>document.getElementById('retry').onclick=async function(){this.disabled=true;this.textContent='Reconnecting...';try{if('caches'in window){var names=await caches.keys();await Promise.all(names.filter(function(name){return name.indexOf('full-circle-')===0}).map(function(name){return caches.delete(name)}))}if(navigator.serviceWorker&&navigator.serviceWorker.controller)navigator.serviceWorker.controller.postMessage({type:'RESET_APP_SHELL'})}catch(e){}var target=new URL('./',location.href);target.searchParams.set('fc-emergency','${RECOVERY_MARKER}');target.searchParams.set('ts',String(Date.now()));location.replace(target.href)};<\/script></body></html>`;
+  const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#0f2037"><title>Full Circle</title><style>html,body{min-height:100%;margin:0;background:#0f2037;color:#fff;font-family:system-ui,-apple-system,sans-serif}main{min-height:100vh;display:flex;align-items:center;justify-content:center;box-sizing:border-box;padding:24px;text-align:center}div{width:min(100%,360px)}button{margin-top:18px;border:0;border-radius:8px;padding:12px 18px;background:#ffd83d;color:#0f2037;font:800 14px system-ui}</style></head><body><main><div><h1 style="font-size:18px">Full Circle is reconnecting.</h1><p style="color:#cbd5e1;font-size:13px;line-height:1.5">Your account and progress are safe.</p><button id="retry" type="button">Try Again</button></div></main><script>document.getElementById('retry').onclick=async function(){this.disabled=true;this.textContent='Reconnecting...';try{if(navigator.serviceWorker){var reg=await navigator.serviceWorker.getRegistration();if(reg)await Promise.race([reg.update().catch(function(){}),new Promise(function(resolve){setTimeout(resolve,3000)})]);if(reg&&reg.waiting)reg.waiting.postMessage({type:'SKIP_WAITING'})}}catch(e){}var target=new URL('./',location.href);target.searchParams.set('fc-emergency','${RECOVERY_MARKER}');target.searchParams.set('ts',String(Date.now()));location.replace(target.href)};<\/script></body></html>`;
   return new Response(html, {
       status: 503,
       headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' },
@@ -495,7 +514,13 @@ function emergencyRecoveryResponse() {
 }
 
 async function cacheFirstAsset(request, event) {
-  const cached = await cacheRead(() => caches.match(request, { ignoreSearch: true, ignoreVary: true }));
+  // Look in this release's cache only. Global caches.match() could return
+  // last month's CSS for the stable full-circle-release.css URL; React then
+  // refuses to mount because the release marker does not match.
+  const cached = await cacheRead(async () => {
+    const cache = await caches.open(ASSET_CACHE);
+    return cache.match(request, { ignoreSearch: true, ignoreVary: true });
+  });
   if (cached && await validReleaseResponse(cached, request)) return localReleaseResponse(cached, request);
   const response = await fetchReleaseWithFallback(request);
   keepAlive(event, safeCachePut(ASSET_CACHE, request, response.clone()));
@@ -503,7 +528,10 @@ async function cacheFirstAsset(request, event) {
 }
 
 async function cacheFirstShellFile(request, event) {
-  const cached = await cacheRead(() => caches.match(request, { ignoreSearch: true, ignoreVary: true }));
+  const cached = await cacheRead(async () => {
+    const cache = await caches.open(SHELL_CACHE);
+    return cache.match(request, { ignoreSearch: true, ignoreVary: true });
+  });
   if (cached) return localReleaseResponse(cached, request);
   const response = await fetchReleaseWithFallback(request);
   keepAlive(event, safeCachePut(SHELL_CACHE, request, response.clone()));
