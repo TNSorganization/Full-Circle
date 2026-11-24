@@ -53,7 +53,7 @@ jobs:
         working-directory: source
         run: node --experimental-strip-types scripts/mobile-runtime-resilience.test.ts
 
-      # Current-release cache verification and safe offline recovery (never serve stale HTML).
+      # Verify current-release assets and refuse stale cached shells during offline recovery.
       - name: Verify startup and offline recovery
         working-directory: source
         run: node scripts/startup-resilience.test.cjs
