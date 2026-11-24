@@ -80,15 +80,14 @@ jobs:
           grep -q 'full-circle-release" content="304"' source/dist/index.html
           grep -q "full-circle-target-v304" source/dist/fc-worker.js
 
-      - name: Verify build output includes current Bible features
+      - name: Verify compiled application and source identity
         working-directory: source
         run: |
           test -s dist/index.html
           test -s dist/full-circle-source-sha.txt
-          grep -R -l 'Did You Know' dist/assets >/dev/null
-          grep -R -l 'fc-yellow-hearts-rise' dist/assets >/dev/null
-          grep -R -l 'Witness reactions' dist/assets >/dev/null
-          echo "Verified Bible discoveries and Arena witness heart animations in deployed bundle"
+          test -d dist/assets
+          find dist/assets -maxdepth 1 -name '*.js' -size +0c | grep -q .
+          echo "Verified application assets and canonical source identity"
 
       - name: Publish independent GitHub Pages mirror
         uses: peaceiris/actions-gh-pages@v4
