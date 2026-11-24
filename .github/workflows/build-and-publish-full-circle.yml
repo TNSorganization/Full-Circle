@@ -77,8 +77,8 @@ jobs:
           touch source/dist/.nojekyll
           echo "${{ steps.source.outputs.sha }}" > source/dist/full-circle-source-sha.txt
           test -s source/dist/fc-worker.js
-          grep -q 'full-circle-release" content="302"' source/dist/index.html
-          grep -q "full-circle-target-v302" source/dist/fc-worker.js
+          grep -q 'full-circle-release" content="303"' source/dist/index.html
+          grep -q "full-circle-target-v303" source/dist/fc-worker.js
 
       - name: Verify build output includes current Bible features
         working-directory: source
