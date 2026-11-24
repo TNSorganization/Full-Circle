@@ -48,9 +48,11 @@ jobs:
         working-directory: source
         run: npm run typecheck
 
-      - name: Verify mobile and published-release checks
+      - name: Run mobile resilience tests
         working-directory: source
-        run: npm run test:mobile
+        run: |
+          node --experimental-strip-types scripts/mobile-runtime-resilience.test.ts
+          node scripts/startup-resilience.test.cjs
 
       - name: Build current application from source
         working-directory: source
