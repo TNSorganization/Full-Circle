@@ -20,6 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
+      # Emergency publish: reduce overlapping profile recovery requests on mobile clients.
       - name: Checkout canonical Full Circle source
         uses: actions/checkout@v4
         with:
