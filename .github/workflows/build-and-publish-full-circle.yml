@@ -53,7 +53,7 @@ jobs:
         working-directory: source
         run: node --experimental-strip-types scripts/mobile-runtime-resilience.test.ts
 
-      # Release-aware cache regression checks: see Partner700/Fullcircle startup tests.
+      # Release-aware cache regression checks: current and immediately preceding safe releases.
       - name: Verify startup and offline recovery
         working-directory: source
         run: node scripts/startup-resilience.test.cjs
