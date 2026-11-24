@@ -53,7 +53,7 @@ jobs:
         working-directory: source
         run: node --experimental-strip-types scripts/mobile-runtime-resilience.test.ts
 
-      # Publish revised group total points, draggable Mines and broader Scripture discoveries.
+      # Check current release before publishing new Bible editorial categories and Arena witness reactions.
       - name: Verify startup and offline recovery
         working-directory: source
         run: node scripts/startup-resilience.test.cjs
@@ -80,7 +80,9 @@ jobs:
           test -s dist/index.html
           test -s dist/full-circle-source-sha.txt
           grep -R -l 'Did You Know' dist/assets >/dev/null
-          echo "Verified source bundle contains Did You Know"
+          grep -R -l 'fc-yellow-hearts-rise' dist/assets >/dev/null
+          grep -R -l 'Witness reactions' dist/assets >/dev/null
+          echo "Verified Bible discoveries and Arena witness heart animations in deployed bundle"
 
       - name: Publish independent GitHub Pages mirror
         uses: peaceiris/actions-gh-pages@v4
