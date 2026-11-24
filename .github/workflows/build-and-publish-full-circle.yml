@@ -67,6 +67,14 @@ jobs:
           echo "${{ steps.source.outputs.sha }}" > source/dist/full-circle-source-sha.txt
           test -s source/dist/fc-worker.js
 
+      - name: Verify build output includes current Bible features
+        working-directory: source
+        run: |
+          test -s dist/index.html
+          test -s dist/full-circle-source-sha.txt
+          grep -R -l 'Did You Know' dist/assets >/dev/null
+          echo "Verified source bundle contains Did You Know"
+
       - name: Publish independent GitHub Pages mirror
         uses: peaceiris/actions-gh-pages@v4
         with:
