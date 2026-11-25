@@ -60,6 +60,10 @@ jobs:
         working-directory: source
         run: node scripts/login-arena-reliability-preflight.test.cjs
 
+      - name: Verify Sentry Weekly Freezer gift permissions
+        working-directory: source
+        run: node scripts/sentry-weekly-freezer-gifts.test.cjs
+
       - name: Verify FCFA Freezer market and payment settlement
         working-directory: source
         run: node scripts/freezer-cash-market.test.cjs
