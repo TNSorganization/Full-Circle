@@ -1,5 +1,9 @@
 name: Full Circle production health watch
 on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/full-circle-health.yml'
   workflow_dispatch:
   schedule:
     - cron: '*/5 * * * *'
