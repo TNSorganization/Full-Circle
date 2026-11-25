@@ -23,6 +23,7 @@ jobs:
       # Publish current Full Circle source, including Daily Freezer at 200 FCFA.
       # Publish collapsible verse discoveries (4340e28).
       # Publish Scripture context and threads (cbf0250).
+      # Publish Kingdom competence curriculum and classified threads (391e4f9).
       - name: Checkout canonical Full Circle source
         uses: actions/checkout@v4
         with:
