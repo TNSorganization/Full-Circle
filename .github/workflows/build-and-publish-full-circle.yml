@@ -50,6 +50,12 @@ jobs:
         working-directory: source
         run: npm run typecheck
 
+      - name: Validate isolated staging load-test scripts
+        working-directory: source
+        run: |
+          node --check scripts/full-circle-staging-login-concurrency.mjs
+          node --check scripts/full-circle-staging-arena-witness-concurrency.mjs
+
       - name: Verify login and Arena reliability preflight
         working-directory: source
         run: node scripts/login-arena-reliability-preflight.test.cjs
