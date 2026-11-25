@@ -60,6 +60,10 @@ jobs:
         working-directory: source
         run: node scripts/login-arena-reliability-preflight.test.cjs
 
+      - name: Verify FCFA Freezer market and payment settlement
+        working-directory: source
+        run: node scripts/freezer-cash-market.test.cjs
+
       - name: Verify mobile storage resilience
         working-directory: source
         run: node --experimental-strip-types scripts/mobile-runtime-resilience.test.ts
