@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      # Publish staggered Arena polls and optimized penalty settlement (25 November).
+      # Publish 25 November reliability preflight: room-scoped heartbeats and witness lock repair.
       - name: Checkout canonical Full Circle source
         uses: actions/checkout@v4
         with:
