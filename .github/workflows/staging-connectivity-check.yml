@@ -1,0 +1,33 @@
+name: Full Circle isolated staging connectivity check
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/staging-connectivity-check.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  staging-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      FULL_CIRCLE_ALLOW_STAGING_TEST: 'yes'
+      FULL_CIRCLE_STAGING_SUPABASE_URL: 'https://ejqaintiabperygbqaud.supabase.co'
+      # Publishable key is browser-safe; no service-role credentials here.
+      FULL_CIRCLE_STAGING_PUBLISHABLE_KEY: 'sb_publishable_R9PIqedtYXe6HwlhhaS88A_GsZG8HJT'
+      LOAD_CHECK_REQUESTS: '30'
+      LOAD_CHECK_CONCURRENCY: '3'
+    steps:
+      - name: Fetch current app testing scripts
+        uses: actions/checkout@v4
+        with:
+          repository: Partner700/Fullcircle
+          ref: main
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Staging Auth health and REST smoke
+        run: node scripts/full-circle-staging-load-test.mjs
