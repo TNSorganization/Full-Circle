@@ -31,3 +31,7 @@ jobs:
           node-version: '22'
       - name: Staging Auth health and REST smoke
         run: node scripts/full-circle-staging-load-test.mjs
+      - name: Staging password-token concurrency probe (rejections only)
+        env:
+          LOAD_CHECK_USERS: '10,25,50'
+        run: node scripts/full-circle-staging-auth-token-pressure.mjs
