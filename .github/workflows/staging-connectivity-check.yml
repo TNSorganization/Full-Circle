@@ -31,7 +31,33 @@ jobs:
           node-version: '22'
       - name: Staging Auth health and REST smoke
         run: node scripts/full-circle-staging-load-test.mjs
-      - name: Staging password-token concurrency probe (rejections only)
+      - name: Staging password-token probe (10 requests from one runner)
         env:
-          LOAD_CHECK_USERS: '10,25,50'
+          LOAD_CHECK_USERS: '10'
+        run: node scripts/full-circle-staging-auth-token-pressure.mjs
+
+  distributed-auth:
+    needs: staging-smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5]
+    env:
+      FULL_CIRCLE_ALLOW_STAGING_TEST: 'yes'
+      FULL_CIRCLE_STAGING_SUPABASE_URL: 'https://ejqaintiabperygbqaud.supabase.co'
+      FULL_CIRCLE_STAGING_PUBLISHABLE_KEY: 'sb_publishable_R9PIqedtYXe6HwlhhaS88A_GsZG8HJT'
+      LOAD_CHECK_USERS: '10'
+    steps:
+      - name: Fetch current staging test script
+        uses: actions/checkout@v4
+        with:
+          repository: Partner700/Fullcircle
+          ref: main
+      - name: Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Ten authentication requests on isolated runner ${{ matrix.shard }}
         run: node scripts/full-circle-staging-auth-token-pressure.mjs
