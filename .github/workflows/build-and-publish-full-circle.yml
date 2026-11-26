@@ -100,8 +100,8 @@ jobs:
           touch source/dist/.nojekyll
           echo "${{ steps.source.outputs.sha }}" > source/dist/full-circle-source-sha.txt
           test -s source/dist/fc-worker.js
-          grep -q 'full-circle-release" content="305"' source/dist/index.html
-          grep -q "full-circle-target-v305" source/dist/fc-worker.js
+          grep -q 'full-circle-release" content="306"' source/dist/index.html
+          grep -q "full-circle-target-v306" source/dist/fc-worker.js
 
       - name: Verify compiled application and source identity
         working-directory: source
